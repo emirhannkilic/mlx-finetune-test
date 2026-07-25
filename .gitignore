@@ -22,3 +22,7 @@ outputs/*
 !adapters/.gitkeep
 !data/.gitkeep
 !outputs/.gitkeep
+
+# Claude Code
+CLAUDE.md
+PROGRESS.md
