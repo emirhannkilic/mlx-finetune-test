@@ -39,9 +39,52 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Fine-tuning
+
+The dummy dataset trains the model to prepend a fixed `[SOC-TEST]` marker to every
+response — a behavior the base model doesn't exhibit, chosen so a successful fine-tune
+is visible in the output, not just in the loss curve.
+
+```bash
+mlx_lm.lora --model mlx-community/Josiefied-Qwen3-4B-abliterated-v1-4bit \
+  --train --data ./data --adapter-path adapters --iters 200 --batch-size 2
+```
+
+Test the fine-tuned adapter:
+
+```bash
+mlx_lm.generate --model mlx-community/Josiefied-Qwen3-4B-abliterated-v1-4bit \
+  --adapter-path adapters --prompt "Your question here"
+```
+
+## Results
+
+Val loss dropped from 6.589 to 0.504 over 200 iterations (25 train / 5 valid examples).
+The adapter was tested against prompts outside the training set:
+
+- **Cross-lingual**: a Turkish prompt still produced the marker and a correct answer,
+  despite training data being entirely in English.
+- **Domain shift**: a phishing-related prompt (unrelated to training topics) produced
+  the marker along with an accurate, coherent answer — the base model's knowledge held
+  up, the adapter didn't overwrite it.
+- **Paraphrase**: a reworded version of a training question was answered correctly,
+  ruling out simple memorization.
+
+
+## Notes
+
+The base model emits a `<think>...</think>` reasoning block by default, even for trivial
+prompts. After fine-tuning on a dataset with no reasoning traces in the completions, the
+model stopped producing them entirely (empty `<think></think>`). Fine-tuning on a
+narrow behavior pattern can suppress unrelated default behaviors — worth keeping in mind
+for future runs where reasoning output matters.
+
+
 ## Status
 
 - [x] mlx-lm installed, baseline inference tested
-- [ ] LoRA fine-tuning on dummy data
-- [ ] Post-fine-tune evaluation (baseline vs. fine-tuned outputs)
+- [x] LoRA fine-tuning on dummy data
+- [x] Post-fine-tune evaluation (baseline vs. fine-tuned outputs, cross-lingual and
+      domain-shift generalization confirmed)
+- [ ] Real dataset selection
 - [ ] Serving (not yet in scope)
