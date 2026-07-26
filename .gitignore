@@ -22,6 +22,7 @@ outputs/*
 !adapters/.gitkeep
 !data/.gitkeep
 !outputs/.gitkeep
+fused_model/
 
 # Claude Code
 CLAUDE.md

@@ -56,6 +56,41 @@ Test the fine-tuned adapter:
 mlx_lm.generate --model mlx-community/Josiefied-Qwen3-4B-abliterated-v1-4bit \
   --adapter-path adapters --prompt "Your question here"
 ```
+## Serving
+
+MLX only runs on Apple Silicon, so it isn't a production serving target. To run the
+fine-tuned model on a standard (e.g. Linux) server, the LoRA adapter is fused into the
+base model and converted to GGUF for use with [llama.cpp](https://github.com/ggml-org/llama.cpp).
+
+**1. Fuse the adapter into the base model (dequantized, fp16):**
+```bash
+mlx_lm.fuse --model mlx-community/Josiefied-Qwen3-4B-abliterated-v1-4bit \
+  --adapter-path adapters --save-path fused_model --dequantize
+```
+
+**2. Convert to GGUF.** `mlx_lm.fuse --export-gguf` doesn't support the Qwen3
+architecture, so conversion goes through llama.cpp's own script instead:
+```bash
+python ~/llama.cpp/convert_hf_to_gguf.py fused_model \
+  --outfile fused_model/model.gguf --outtype f16
+```
+
+**3. Quantize** (fp16 → Q4_K_M, ~8GB → ~2.4GB):
+```bash
+~/llama.cpp/build/bin/llama-quantize fused_model/model.gguf \
+  fused_model/model-q4_k_m.gguf Q4_K_M
+```
+
+**4. Serve** an OpenAI-compatible API:
+```bash
+~/llama.cpp/build/bin/llama-server -m fused_model/model-q4_k_m.gguf --port 8080
+```
+
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Your question here"}], "max_tokens": 100}'
+```
 
 ## Results
 
@@ -69,6 +104,9 @@ The adapter was tested against prompts outside the training set:
   up, the adapter didn't overwrite it.
 - **Paraphrase**: a reworded version of a training question was answered correctly,
   ruling out simple memorization.
+- **Post-serving**: after fusing, converting to GGUF, and quantizing to Q4_K_M, the
+  marker was still present in responses served through llama.cpp's API — the full
+  MLX-to-GGUF conversion chain preserves the fine-tuned behavior.
 
 
 ## Notes
@@ -86,5 +124,6 @@ for future runs where reasoning output matters.
 - [x] LoRA fine-tuning on dummy data
 - [x] Post-fine-tune evaluation (baseline vs. fine-tuned outputs, cross-lingual and
       domain-shift generalization confirmed)
+- [x] Serving: fuse → GGUF → quantize → llama.cpp server → API verification
 - [ ] Real dataset selection
-- [ ] Serving (not yet in scope)
+- [ ] Production serving config (auth, concurrency, deployment target)
