@@ -22,7 +22,7 @@ under `~/.cache/huggingface/`.
 ## Project structure
 
 ```
-scripts/    inference and fine-tuning scripts
+scripts/    inference, evaluation, and pipeline scripts
 data/       training/validation data (train.jsonl, valid.jsonl) — not tracked in git
 adapters/   LoRA adapter output — not tracked in git
 outputs/    logs and experiment output — not tracked in git
@@ -56,11 +56,40 @@ Test the fine-tuned adapter:
 mlx_lm.generate --model mlx-community/Josiefied-Qwen3-4B-abliterated-v1-4bit \
   --adapter-path adapters --prompt "Your question here"
 ```
+
+## Evaluation
+
+`scripts/evaluate.py` runs the fine-tuned adapter against prompts that are not in
+the training set (cross-lingual, domain-shift, paraphrase — see Results below) and
+checks that the `[SOC-TEST]` marker is still present in each completion:
+
+```bash
+python scripts/evaluate.py --adapter-path adapters
+```
+
+Prints a pass/fail summary and writes full completions to `outputs/eval_results.json`.
+
 ## Serving
 
 MLX only runs on Apple Silicon, so it isn't a production serving target. To run the
 fine-tuned model on a standard (e.g. Linux) server, the LoRA adapter is fused into the
 base model and converted to GGUF for use with [llama.cpp](https://github.com/ggml-org/llama.cpp).
+
+`scripts/run_pipeline.py` chains fuse → GGUF conversion → quantization → (optionally)
+serving:
+
+```bash
+python scripts/run_pipeline.py --serve
+```
+
+It looks for a llama.cpp checkout via `--llama-cpp-path`, the `LLAMA_CPP_PATH`
+env var, or `~/llama.cpp` (in that order). If none is found, it stops after the
+MLX fuse step instead of failing — llama.cpp isn't pip-installable, so its
+location varies by machine. Run `python scripts/run_pipeline.py --help` for all
+options (`--adapter-path`, `--quant-type`, `--port`, ...).
+
+<details>
+<summary>Equivalent manual commands</summary>
 
 **1. Fuse the adapter into the base model (dequantized, fp16):**
 ```bash
@@ -85,6 +114,7 @@ python ~/llama.cpp/convert_hf_to_gguf.py fused_model \
 ```bash
 ~/llama.cpp/build/bin/llama-server -m fused_model/model-q4_k_m.gguf --port 8080
 ```
+</details>
 
 ```bash
 curl http://localhost:8080/v1/chat/completions \
