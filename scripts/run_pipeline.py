@@ -50,6 +50,12 @@ def main():
     parser.add_argument("--llama-cpp-path", default=None, help="Overrides LLAMA_CPP_PATH env var and the ~/llama.cpp default.")
     parser.add_argument("--serve", action="store_true", help="Launch llama-server after quantizing.")
     parser.add_argument("--port", default="8080")
+    parser.add_argument(
+        "--cors-origins",
+        default="localhost",
+        help="Passed to llama-server --cors-origins. Default 'localhost' (vs. llama-server's own default of "
+        "'*', which allows any site to call the API from a user's browser). Use '*' to opt back into that.",
+    )
     args = parser.parse_args()
 
     fused_path = Path(args.fused_path)
@@ -102,8 +108,22 @@ def main():
         print(f"\nllama-server binary not found under {llama_cpp_path}. Skipping serve step.")
         return
 
-    print(f"\n=== Step 4/4: llama-server (port {args.port}) ===")
-    run([str(llama_server), "-m", str(quant_gguf), "--port", args.port])
+    server_cmd = [
+        str(llama_server), "-m", str(quant_gguf),
+        "--port", args.port,
+        "--cors-origins", args.cors_origins,
+    ]
+    api_key = os.environ.get("LLAMA_API_KEY")
+    if api_key:
+        server_cmd += ["--api-key", api_key]
+        print(f"\n=== Step 4/4: llama-server (port {args.port}, API key set via LLAMA_API_KEY) ===")
+    else:
+        print(
+            f"\n=== Step 4/4: llama-server (port {args.port}, no API key) ===\n"
+            "LLAMA_API_KEY not set — server will accept unauthenticated requests. "
+            "Set it (export LLAMA_API_KEY=...) before running with --serve to require a key."
+        )
+    run(server_cmd)
 
 
 if __name__ == "__main__":

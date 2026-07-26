@@ -146,13 +146,14 @@ completions to `outputs/eval_results.json`.
 MLX only runs on Apple Silicon, so it isn't a production serving target. To run the
 fine-tuned model on a standard (e.g. Linux) server, the LoRA adapter is fused into the
 base model and converted to GGUF for use with [llama.cpp](https://github.com/ggml-org/llama.cpp).
-This chain was verified end-to-end with the Phase 1 (dummy) adapter; re-running it
-with the Phase 2 (phishing) adapter is the next step.
+This chain has been verified end-to-end with both the Phase 1 (dummy) and Phase 2
+(phishing) adapters.
 
 `scripts/run_pipeline.py` chains fuse → GGUF conversion → quantization → (optionally)
 serving:
 
 ```bash
+export LLAMA_API_KEY="choose-a-key"  # optional but recommended, see below
 python scripts/run_pipeline.py --serve
 ```
 
@@ -161,6 +162,13 @@ env var, or `~/llama.cpp` (in that order). If none is found, it stops after the
 MLX fuse step instead of failing — llama.cpp isn't pip-installable, so its
 location varies by machine. Run `python scripts/run_pipeline.py --help` for all
 options (`--adapter-path`, `--quant-type`, `--port`, ...).
+
+**Auth and CORS**: `llama-server` defaults to no API key and `--cors-origins '*'`
+(any website can call it from a browser). `run_pipeline.py` narrows the CORS
+default to `localhost`, and passes `--api-key` to `llama-server` if the
+`LLAMA_API_KEY` env var is set — leave it unset to run without auth (e.g. for
+local testing), or set it to require a bearer token on every request. Pass
+`--cors-origins '*'` explicitly to opt back into the permissive default.
 
 <details>
 <summary>Equivalent manual commands</summary>
@@ -193,6 +201,7 @@ python ~/llama.cpp/convert_hf_to_gguf.py fused_model \
 ```bash
 curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $LLAMA_API_KEY" \
   -d '{"messages": [{"role": "user", "content": "Your question here"}], "max_tokens": 100}'
 ```
 
@@ -204,6 +213,7 @@ curl http://localhost:8080/v1/chat/completions \
 - [x] Phase 2: real dataset (Kaggle phishing emails) selected, cleaned, and used
       for LoRA fine-tuning; checkpoint selected by verifying actual output, not
       just val loss
-- [ ] Re-run the serving chain (fuse → GGUF → quantize → llama.cpp) with the
-      Phase 2 adapter
-- [ ] Production serving config (auth, concurrency, deployment target)
+- [x] Serving chain (fuse → GGUF → quantize → llama.cpp) re-run and verified
+      with the Phase 2 adapter — API correctly classified phishing/safe test emails
+- [x] Serving config: optional API key auth (`LLAMA_API_KEY`), CORS restricted
+      to `localhost` by default
