@@ -143,7 +143,7 @@ completions to `outputs/eval_results.json`.
 
 ## Serving
 
-MLX only runs on Apple Silicon, so it isn't a production serving target. To run the
+MLX only runs on Apple Silicon, so it isn't a production serving target on its own. To run the
 fine-tuned model on a standard (e.g. Linux) server, the LoRA adapter is fused into the
 base model and converted to GGUF for use with [llama.cpp](https://github.com/ggml-org/llama.cpp).
 This chain has been verified end-to-end with both the Phase 1 (dummy) and Phase 2
