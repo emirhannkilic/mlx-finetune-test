@@ -1,5 +1,7 @@
 # mlx-finetune-test
 
+[English](README.md) | [Türkçe](README.tr.md)
+
 A hands-on pipeline for LoRA fine-tuning of a local LLM on Apple Silicon using
 [MLX](https://github.com/ml-explore/mlx). This is a learning project focused on getting a
 fine-tuning + inference pipeline working end-to-end, not on data quality or model performance.
